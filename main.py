@@ -16,8 +16,17 @@ argparser = argparse.ArgumentParser(description='Launch Jolteon discord bot')
 argparser.add_argument('--loglevel', help='Set the logging level of Jolteon', dest='logginglevel', default='INFO')
 argparser.add_argument('--logfile', help='Set the file for Jolteon to log to', dest='loggingfile',
                        default='jolteon.log')
+argparser.add_argument('--status', help='Set Jolteon\'s status ', dest='botstatus', default=os.getenv('status'))
+argparser.add_argument('--activity', help='Set Jolteon\'s activity', dest='botactivity', default=os.getenv('activity'))
 flags, wrongflags = argparser.parse_known_args()
 logginglevel = getattr(logging, flags.logginglevel.upper())
+if flags.botactivity:
+    botactivity = getattr(discord.ActivityType, flags.botactivity.split()[0].lower())
+    botdoing = flags.botactivity.split(' ', 1)[1]
+else:
+    botactivity = None
+    botdoing = None
+
 logging.basicConfig(level=logginglevel, filename=flags.loggingfile, filemode='w+', encoding='utf-8', )
 if wrongflags:
     logging.warning("An unrecognised flag was passed, skipping")
@@ -71,8 +80,8 @@ intents = discord.Intents().all()
 logging.info("Initializing bot!")
 jolteon = commands.Bot(command_prefix=prefixgetter, case_insensitive=True, intents=intents,
                        help_command=Help(command_attrs={'aliases': ['man']}),
-                       activity=discord.Activity(type=discord.ActivityType.watching, name="out for you"),
-                       status=discord.Status.do_not_disturb,
+                       activity=discord.Activity(type=botactivity, name=botdoing),
+                       status=getattr(discord.Status, flags.botstatus.lower()),
                        strip_after_prefix=True)
 jolteon.embedcolor = 0xadd8e6
 logging.info("Connecting to SQL server!")
