@@ -69,9 +69,9 @@ class Help(commands.MinimalHelpCommand):
     async def send_bot_help(self, mapping):
         embed = discord.Embed(colour=jolteon.embedcolor, title="Help")
         prefix = await prefixgetter(jolteon, self.context.message)
-        embed.add_field(name="Commands",
-                        value=f"You can use the tags by using `{prefix[0]}t <tag> [@mention]`\n\nYou can get a list "
-                              f"of tags by running `{prefix[0]}tl`",
+        embed.add_field(name="Tags",
+                        value=f"You can use the tags by using `{prefix[0]}t <tag> [@mention]`\n\nYou can get a list of "
+                              f"tags by running `{prefix[0]}tl` \n\n You can delete a tag by reacting with the 🗑️ emoji",
                         inline=False)
         prefix = await prefixgetter(jolteon, self.context.message)
         embed.add_field(name="Prefix", value=f"`{prefix[0]}` or <@{self.context.me.id}>", inline=False)
@@ -101,17 +101,27 @@ logging.debug(f"Connected to sql server {os.getenv('SQLserverhost')} as {os.gete
               f"on database {os.getenv('SQLdatabase')}, max connections {jolteon.sql_server_pool.maxsize}")
 
 
+async def if_wastebasket_reacted(ctx, reply):
+    def added_emoji_check(reaction, user):  # the actual check
+        return user == ctx.message.author and str(reaction.emoji) == '🗑️'
+
+    reaction, user = await jolteon.wait_for('reaction_add', check=added_emoji_check)
+    try:
+        await reply.delete()
+    except discord.NotFound:
+        pass
+
+
 @jolteon.command(aliases=["t"])
 @commands.guild_only()
-async def tag(self, ctx, *inputs):
+async def tag(ctx, *inputs):
     """Call a tag. (or two, or ten)"""
-    await ctx.message.delete()
     for each_input in inputs:
         if "@everyone" in each_input or "@here" in each_input:
-            await ctx.send("Mass ping attempt detected, no actions taken.")
+            await ctx.reply("Mass ping attempt detected, no actions taken.")
             return
     if ctx.message.role_mentions:
-        await ctx.send("Role mention attempt detected, no actions taken")
+        await ctx.reply("Role mention attempt detected, no actions taken")
         return
     else:
         errors = False
@@ -120,7 +130,7 @@ async def tag(self, ctx, *inputs):
         for user in ctx.message.mentions:
             pings.append(user.mention)
         sid = ctx.guild.id
-        tags = [tag for each_tag in inputs if not re.match(r'<@(!?)([0-9]*)>', each_tag)]
+        tags = [tag for tag in inputs if not re.match(r'<@(!?)([0-9]*)>', tag)]
         for t in tags:
             t = t.lower()
             connection = await jolteon.sql_server_pool.acquire()
@@ -129,6 +139,7 @@ async def tag(self, ctx, *inputs):
             factoid = await db.fetchone()
             await db.close()
             connection.close()
+            jolteon.sql_server_pool.release(connection)
             if factoid:
                 factoids.append(factoid[0])
             else:
@@ -137,11 +148,17 @@ async def tag(self, ctx, *inputs):
                 break
         if errors is False:
             if factoids:
-                embed = discord.Embed(colour=self.glaceon.embedcolor, description="\n\n".join(factoids))
+                if len("\n\n".join(factoids)) >= 4096:
+                    await ctx.reply("You have too many factoids!")
+                    return
+                await ctx.message.delete()
+                embed = discord.Embed(colour=jolteon.embedcolor, description="\n\n".join(factoids))
                 embed.set_footer(text=f"I am a bot, i will not respond to you | Request by {ctx.author}")
-                await ctx.send(" ".join(pings) + " Please refer to the below information.", embed=embed)
+                our_message = await ctx.send(" ".join(pings) + " Please refer to the below information.", embed=embed)
+                wastebasket_check_task = asyncio.create_task(if_wastebasket_reacted(ctx, our_message))
+                await wastebasket_check_task
             else:
-                await ctx.send("You need to specify a tag!", delete_after=15)
+                await ctx.reply("You need to specify a tag!", delete_after=15)
 
 
 @jolteon.command(aliases=["tmanage", "tagmanage", "tadd", "tm", "ta"])
@@ -149,12 +166,12 @@ async def tag(self, ctx, *inputs):
 @commands.guild_only()
 async def tagadd(ctx, name, *, contents):
     """add or edit tags"""
-    await ctx.message.delete()
-    connection = await jolteon.sql_server_pool.acquire()
-    db = await connection.cursor()
     if len(contents) > 1900:
-        await ctx.send("That factoid is too long!")
+        await ctx.reply("That factoid is too long!")
     else:
+        await ctx.message.delete()
+        connection = await jolteon.sql_server_pool.acquire()
+        db = await connection.cursor()
         await db.execute(f'''SELECT guildid FROM tags WHERE guildid = %s AND tagname = %s''',
                          (ctx.guild.id, name.lower()))
         if await db.fetchone():
@@ -165,6 +182,7 @@ async def tagadd(ctx, name, *, contents):
                              (ctx.guild.id, name.lower(), contents))
         await db.close()
         connection.close()
+        jolteon.sql_server_pool.release(connection)
         await ctx.send(f"Tag added with name `{name.lower()}` and contents `{contents}`", delete_after=10)
 
 
@@ -177,7 +195,9 @@ async def tagdelete(ctx, name):
     connection = await jolteon.sql_server_pool.acquire()
     db = await connection.cursor()
     await db.execute('''DELETE FROM tags WHERE guildid = %s AND tagname = %s''', (ctx.guild.id, name.lower()))
-    await connection.close()
+    await db.close()
+    connection.close()
+    jolteon.sql_server_pool.release(connection)
     await ctx.send(f"tag `{name.lower()}` deleted", delete_after=10)
 
 
@@ -193,10 +213,33 @@ async def tagslist(ctx):
     factoids = await db.fetchall()
     await db.close()
     connection.close()
+    jolteon.sql_server_pool.release(connection)
     if factoids:
         await ctx.send('`' + "`, `".join([i for (i,) in factoids]) + '`')
     else:
         await ctx.send(f"This guild has no tags!")
+
+
+@jolteon.command()
+@commands.has_guild_permissions(administrator=True)  # requires that the person issuing the command has administrator
+@commands.guild_only()
+async def prefix(ctx, newprefix):  # context and what we should set the new prefix to
+    """Sets the bot prefix for this server"""
+    connection = await jolteon.sql_server_pool.acquire()
+    db = await connection.cursor()
+    await db.execute(f'''SELECT prefix FROM prefixes WHERE guildid = %s''',
+                     (ctx.guild.id,))  # get the current prefix for that server, if it exists
+    if await db.fetchone():  # actually check if it exists
+        await db.execute('''UPDATE prefixes SET prefix = %s WHERE guildid = %s''',
+                         (newprefix, ctx.guild.id))  # update prefix
+    else:
+        await db.execute("INSERT INTO prefixes(guildid, prefix) VALUES (%s,%s)",
+                         (ctx.guild.id, newprefix))  # set new prefix
+    # close connection
+    await db.close()
+    connection.close()
+    jolteon.sql_server_pool.release(connection)
+    await ctx.send(f"Prefix set to {newprefix}")  # tell admin what happened
 
 
 @jolteon.event
