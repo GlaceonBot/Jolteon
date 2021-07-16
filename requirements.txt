@@ -2,3 +2,4 @@ python-dotenv
 aiomysql
 discord
 cryptography
+pynacl # suppress warning, not really needed as jolteon does not use voice

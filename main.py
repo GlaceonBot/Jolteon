@@ -1,8 +1,10 @@
 #!venv/bin/python
+import traceback
+import argparse
+import logging
 import asyncio
 import os
 import re
-import traceback
 
 import dotenv
 import aiomysql
@@ -10,19 +12,29 @@ import discord
 from discord.ext import commands
 
 dotenv.load_dotenv()
+argparser = argparse.ArgumentParser(description='Launch Jolteon discord bot')
+argparser.add_argument('--loglevel', help='Set the logging level of Jolteon', dest='logginglevel', default='INFO')
+argparser.add_argument('--logfile', help='Set the file for Jolteon to log to', dest='loggingfile',
+                       default='jolteon.log')
+flags, wrongflags = argparser.parse_known_args()
+logginglevel = getattr(logging, flags.logginglevel.upper())
+logging.basicConfig(level=logginglevel, filename=flags.loggingfile, filemode='w+', encoding='utf-8', )
+if wrongflags:
+    logging.warning("An unrecognised flag was passed, skipping")
+logging.info("Starting Jolteon.....")
 
 
-async def prefixgetter(jolteon, message):
+async def prefixgetter(bot, message):
     # set default prefix
     default_prefix = ";"
     # list of pings so that they can be used as prefixes
-    ping_prefixes = [jolteon.user.mention, jolteon.user.mention.replace('@', '@!')]
+    ping_prefixes = [bot.user.mention, bot.user.mention.replace('@', '@!')]
     # try to get the guild id. if there isn't one, then it's a DM and uses the default prefix.
     try:
         guildid = message.guild.id
     except AttributeError:
         return default_prefix
-    connection = await jolteon.sql_server_pool.acquire()
+    connection = await bot.sql_server_pool.acquire()
     db = await connection.cursor()
     # find which prefix matches this specific server id
     await db.execute(f'''SELECT prefix FROM prefixes WHERE guildid = %s''', (guildid,))
@@ -30,6 +42,8 @@ async def prefixgetter(jolteon, message):
     custom_prefix = await db.fetchone()
     # if the custom prefix exists, then send it back, otherwise return the default one
     await db.close()
+    connection.close()
+    bot.sql_server_pool.release(connection)
     if custom_prefix:
         return str(custom_prefix[0]), *ping_prefixes
     else:
@@ -43,7 +57,8 @@ class Help(commands.MinimalHelpCommand):
         embed = discord.Embed(colour=jolteon.embedcolor, title="Help")
         prefix = await prefixgetter(jolteon, self.context.message)
         embed.add_field(name="Commands",
-                        value=f"You can use the tags by using `{prefix[0]}t <tag> [@mention]`\n\nYou can get a list of tags by running `{prefix[0]}tl`",
+                        value=f"You can use the tags by using `{prefix[0]}t <tag> [@mention]`\n\nYou can get a list "
+                              f"of tags by running `{prefix[0]}tl`",
                         inline=False)
         prefix = await prefixgetter(jolteon, self.context.message)
         embed.add_field(name="Prefix", value=f"`{prefix[0]}` or <@{self.context.me.id}>", inline=False)
@@ -53,25 +68,22 @@ class Help(commands.MinimalHelpCommand):
 # Sets the discord intents to all
 intents = discord.Intents().all()
 # defines the glaceon class as a bot with the prefixgetter prefix and case-insensitive commands
+logging.info("Initializing bot!")
 jolteon = commands.Bot(command_prefix=prefixgetter, case_insensitive=True, intents=intents,
                        help_command=Help(command_attrs={'aliases': ['man']}),
                        activity=discord.Activity(type=discord.ActivityType.watching, name="out for you"),
                        status=discord.Status.do_not_disturb,
                        strip_after_prefix=True)
 jolteon.embedcolor = 0xadd8e6
-
-
-async def connect_to_sql_server():
-    sql_server_connection = await aiomysql.create_pool(host=os.getenv('SQLserverhost'),
-                                                       user=os.getenv('SQLusername'),
-                                                       password=os.getenv('SQLpassword'),
-                                                       db=os.getenv('SQLdatabase'),
-                                                       autocommit=True)
-    return sql_server_connection
-
-
+logging.info("Connecting to SQL server!")
 loop = asyncio.get_event_loop()
-jolteon.sql_server_pool = loop.run_until_complete(connect_to_sql_server())
+jolteon.sql_server_pool = loop.run_until_complete(aiomysql.create_pool(host=os.getenv('SQLserverhost'),
+                                                                       user=os.getenv('SQLusername'),
+                                                                       password=os.getenv('SQLpassword'),
+                                                                       db=os.getenv('SQLdatabase'),
+                                                                       autocommit=True,
+                                                                       maxsize=100,
+                                                                       minsize=1))
 
 
 @jolteon.command(aliases=["t"])
@@ -85,6 +97,7 @@ async def tag(self, ctx, *inputs):
             return
     if ctx.message.role_mentions:
         await ctx.send("Role mention attempt detected, no actions taken")
+        return
     else:
         errors = False
         factoids = []
@@ -92,7 +105,7 @@ async def tag(self, ctx, *inputs):
         for user in ctx.message.mentions:
             pings.append(user.mention)
         sid = ctx.guild.id
-        tags = [tag for tag in inputs if not re.match(r'<@(!?)([0-9]*)>', tag)]
+        tags = [tag for each_tag in inputs if not re.match(r'<@(!?)([0-9]*)>', each_tag)]
         for t in tags:
             t = t.lower()
             connection = await jolteon.sql_server_pool.acquire()
@@ -100,6 +113,7 @@ async def tag(self, ctx, *inputs):
             await db.execute('''SELECT tagcontent FROM tags WHERE guildid = %s AND tagname = %s''', (sid, t))
             factoid = await db.fetchone()
             await db.close()
+            connection.close()
             if factoid:
                 factoids.append(factoid[0])
             else:
@@ -135,6 +149,7 @@ async def tagadd(ctx, name, *, contents):
             await db.execute('''INSERT INTO tags(guildid, tagname, tagcontent) VALUES (%s,%s,%s)''',
                              (ctx.guild.id, name.lower(), contents))
         await db.close()
+        connection.close()
         await ctx.send(f"Tag added with name `{name.lower()}` and contents `{contents}`", delete_after=10)
 
 
@@ -147,9 +162,8 @@ async def tagdelete(ctx, name):
     connection = await jolteon.sql_server_pool.acquire()
     db = await connection.cursor()
     await db.execute('''DELETE FROM tags WHERE guildid = %s AND tagname = %s''', (ctx.guild.id, name.lower()))
-    await db.close()
+    await connection.close()
     await ctx.send(f"tag `{name.lower()}` deleted", delete_after=10)
-
 
 
 @jolteon.command(aliases=["tlist", "tl", "taglist"])
@@ -163,6 +177,7 @@ async def tagslist(ctx):
     await db.execute('''SELECT tagname FROM tags WHERE guildid = %s''', (sid,))
     factoids = await db.fetchall()
     await db.close()
+    connection.close()
     if factoids:
         await ctx.send('`' + "`, `".join([i for (i,) in factoids]) + '`')
     else:
@@ -244,4 +259,5 @@ async def on_command_error(ctx, error):
                        delete_after=30)
 
 
+logging.info('Running bot....')
 jolteon.run(os.getenv('bot_token'))
