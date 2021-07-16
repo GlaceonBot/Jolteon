@@ -20,6 +20,10 @@ argparser.add_argument('--status', help='Set Jolteon\'s status ', dest='botstatu
 argparser.add_argument('--activity', help='Set Jolteon\'s activity', dest='botactivity', default=os.getenv('activity'))
 flags, wrongflags = argparser.parse_known_args()
 logginglevel = getattr(logging, flags.logginglevel.upper())
+if flags.botstatus:
+    botstatus = getattr(discord.Status, flags.botstatus.lower())
+else:
+    botstatus = discord.Status.online
 if flags.botactivity:
     botactivity = getattr(discord.ActivityType, flags.botactivity.split()[0].lower())
     botdoing = flags.botactivity.split(' ', 1)[1]
@@ -81,7 +85,7 @@ logging.info("Initializing bot!")
 jolteon = commands.Bot(command_prefix=prefixgetter, case_insensitive=True, intents=intents,
                        help_command=Help(command_attrs={'aliases': ['man']}),
                        activity=discord.Activity(type=botactivity, name=botdoing),
-                       status=getattr(discord.Status, flags.botstatus.lower()),
+                       status=botstatus,
                        strip_after_prefix=True)
 jolteon.embedcolor = 0xadd8e6
 logging.info("Connecting to SQL server!")
@@ -93,6 +97,8 @@ jolteon.sql_server_pool = loop.run_until_complete(aiomysql.create_pool(host=os.g
                                                                        autocommit=True,
                                                                        maxsize=100,
                                                                        minsize=1))
+logging.debug(f"Connected to sql server {os.getenv('SQLserverhost')} as {os.getenv('SQLusername')} "
+              f"on database {os.getenv('SQLdatabase')}, max connections {jolteon.sql_server_pool.maxsize}")
 
 
 @jolteon.command(aliases=["t"])
