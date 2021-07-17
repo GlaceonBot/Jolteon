@@ -1,14 +1,14 @@
 #!venv/bin/python
-import traceback
 import argparse
-import logging
 import asyncio
+import logging
 import os
 import re
+import traceback
 
-import dotenv
 import aiomysql
 import discord
+import dotenv
 from discord.ext import commands
 
 dotenv.load_dotenv()
@@ -89,14 +89,20 @@ jolteon = commands.Bot(command_prefix=prefixgetter, case_insensitive=True, inten
                        strip_after_prefix=True)
 jolteon.embedcolor = 0xadd8e6
 logging.info("Connecting to SQL server!")
+
+
+async def connect_to_sql():
+    return await aiomysql.create_pool(host=os.getenv('SQLserverhost'),
+                                      user=os.getenv('SQLusername'),
+                                      password=os.getenv('SQLpassword'),
+                                      db=os.getenv('SQLdatabase'),
+                                      autocommit=True,
+                                      maxsize=10,
+                                      minsize=1)
+
+
 loop = asyncio.get_event_loop()
-jolteon.sql_server_pool = loop.run_until_complete(aiomysql.create_pool(host=os.getenv('SQLserverhost'),
-                                                                       user=os.getenv('SQLusername'),
-                                                                       password=os.getenv('SQLpassword'),
-                                                                       db=os.getenv('SQLdatabase'),
-                                                                       autocommit=True,
-                                                                       maxsize=100,
-                                                                       minsize=1))
+jolteon.sql_server_pool = loop.run_until_complete(connect_to_sql())
 logging.debug(f"Connected to sql server {os.getenv('SQLserverhost')} as {os.getenv('SQLusername')} "
               f"on database {os.getenv('SQLdatabase')}, max connections {jolteon.sql_server_pool.maxsize}")
 
