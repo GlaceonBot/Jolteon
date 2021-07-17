@@ -156,21 +156,21 @@ async def tag(ctx, *inputs):
             pings.append(user.mention)
         sid = ctx.guild.id
         tags = [tag for tag in inputs if not re.match(r'<@(!?)([0-9]*)>', tag)]
+        connection = await jolteon.sql_server_pool.acquire()
+        db = await connection.cursor()
         for t in tags:
             t = t.lower()
-            connection = await jolteon.sql_server_pool.acquire()
-            db = await connection.cursor()
             await db.execute('''SELECT tagcontent FROM tags WHERE guildid = %s AND tagname = %s''', (sid, t))
             factoid = await db.fetchone()
             await db.close()
-            connection.close()
-            jolteon.sql_server_pool.release(connection)
             if factoid:
                 factoids.append(factoid[0])
             else:
                 await ctx.send(f"tag `{t}` not found!", delete_after=15)
                 errors = True
                 break
+        connection.close()
+        jolteon.sql_server_pool.release(connection)
         if errors is False:
             if factoids:
                 if len("\n\n".join(factoids)) >= 4096:
@@ -193,6 +193,8 @@ async def tagadd(ctx, name, *, contents):
     """add or edit tags"""
     if len(contents) > 1900:
         await ctx.reply("That factoid is too long!")
+    elif re.match(r'<@(!?)([0-9]*)>', name):
+        await ctx.reply("You cannot have a ping factoid.")
     else:
         await ctx.message.delete()
         connection = await jolteon.sql_server_pool.acquire()
