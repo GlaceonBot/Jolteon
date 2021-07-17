@@ -92,13 +92,14 @@ logging.info("Connecting to SQL server!")
 
 
 async def connect_to_sql():
-    return await aiomysql.create_pool(host=os.getenv('SQLserverhost'),
+    conn = await aiomysql.create_pool(host=os.getenv('SQLserverhost'),
                                       user=os.getenv('SQLusername'),
                                       password=os.getenv('SQLpassword'),
                                       db=os.getenv('SQLdatabase'),
                                       autocommit=True,
                                       maxsize=10,
                                       minsize=1)
+    return conn
 
 
 loop = asyncio.get_event_loop()
