@@ -109,6 +109,7 @@ for signame in ('SIGINT', 'SIGTERM'):
     except NotImplementedError:
         logging.debug("You are on Windows, clean close is not enabled!")
 
+
 async def connect_to_sql():
     conn = await aiomysql.create_pool(host=os.getenv('SQLserverhost'),
                                       user=os.getenv('SQLusername'),
@@ -156,34 +157,32 @@ async def tag(ctx, *inputs):
             pings.append(user.mention)
         sid = ctx.guild.id
         tags = [tag for tag in inputs if not re.match(r'<@(!?)([0-9]*)>', tag)]
-        connection = await jolteon.sql_server_pool.acquire()
-        db = await connection.cursor()
-        for t in tags:
-            t = t.lower()
-            await db.execute('''SELECT tagcontent FROM tags WHERE guildid = %s AND tagname = %s''', (sid, t))
-            factoid = await db.fetchone()
-            await db.close()
-            if factoid:
-                factoids.append(factoid[0])
-            else:
-                await ctx.send(f"tag `{t}` not found!", delete_after=15)
-                errors = True
-                break
-        connection.close()
-        jolteon.sql_server_pool.release(connection)
-        if errors is False:
-            if factoids:
-                if len("\n\n".join(factoids)) >= 4096:
-                    await ctx.reply("You have too many factoids!")
-                    return
-                await ctx.message.delete()
-                embed = discord.Embed(colour=jolteon.embedcolor, description="\n\n".join(factoids))
-                embed.set_footer(text=f"I am a bot, i will not respond to you | Request by {ctx.author}")
-                our_message = await ctx.send(" ".join(pings) + " Please refer to the below information.", embed=embed)
-                wastebasket_check_task = asyncio.create_task(if_wastebasket_reacted(ctx, our_message))
-                await wastebasket_check_task
-            else:
-                await ctx.reply("You need to specify a tag!", delete_after=15)
+        async with jolteon.sql_server_pool.acquire() as connection:
+            async with connection.cursor() as db:
+                for t in tags:
+                    t = t.lower()
+                    await db.execute('''SELECT tagcontent FROM tags WHERE guildid = %s AND tagname = %s''', (sid, t))
+                    factoid = await db.fetchone()
+                    await db.close()
+                    if factoid:
+                        factoids.append(factoid[0])
+                    else:
+                        await ctx.send(f"tag `{t}` not found!", delete_after=15)
+                        errors = True
+                        break
+                if errors is False:
+                    if factoids:
+                        if len("\n\n".join(factoids)) >= 4096:
+                            await ctx.reply("You have too many factoids!")
+                            return
+                        await ctx.message.delete()
+                        embed = discord.Embed(colour=jolteon.embedcolor, description="\n\n".join(factoids))
+                        embed.set_footer(text=f"I am a bot, i will not respond to you | Request by {ctx.author}")
+                        our_message = await ctx.send(" ".join(pings) + " Please refer to the below information.", embed=embed)
+                        wastebasket_check_task = asyncio.create_task(if_wastebasket_reacted(ctx, our_message))
+                        await wastebasket_check_task
+                    else:
+                        await ctx.reply("You need to specify a tag!", delete_after=15)
 
 
 @jolteon.command(aliases=["tmanage", "tagmanage", "tadd", "tm", "ta"])
@@ -197,20 +196,17 @@ async def tagadd(ctx, name, *, contents):
         await ctx.reply("You cannot have a ping factoid.")
     else:
         await ctx.message.delete()
-        connection = await jolteon.sql_server_pool.acquire()
-        db = await connection.cursor()
-        await db.execute(f'''SELECT guildid FROM tags WHERE guildid = %s AND tagname = %s''',
-                         (ctx.guild.id, name.lower()))
-        if await db.fetchone():
-            await db.execute('''UPDATE tags SET tagcontent = %s WHERE guildid = %s AND tagname = %s''',
-                             (contents, ctx.guild.id, name.lower()))
-        else:
-            await db.execute('''INSERT INTO tags(guildid, tagname, tagcontent) VALUES (%s,%s,%s)''',
-                             (ctx.guild.id, name.lower(), contents))
-        await db.close()
-        connection.close()
-        jolteon.sql_server_pool.release(connection)
-        await ctx.send(f"Tag added with name `{name.lower()}` and contents `{contents}`", delete_after=10)
+        async with jolteon.sql_server_pool.acquire() as connection:
+            async with connection.cursor() as db:
+                await db.execute(f'''SELECT guildid FROM tags WHERE guildid = %s AND tagname = %s''',
+                                 (ctx.guild.id, name.lower()))
+                if await db.fetchone():
+                    await db.execute('''UPDATE tags SET tagcontent = %s WHERE guildid = %s AND tagname = %s''',
+                                     (contents, ctx.guild.id, name.lower()))
+                else:
+                    await db.execute('''INSERT INTO tags(guildid, tagname, tagcontent) VALUES (%s,%s,%s)''',
+                                     (ctx.guild.id, name.lower(), contents))
+                await ctx.send(f"Tag added with name `{name.lower()}` and contents `{contents}`", delete_after=10)
 
 
 @jolteon.command(aliases=["trm", "tagremove"])
@@ -219,12 +215,9 @@ async def tagadd(ctx, name, *, contents):
 async def tagdelete(ctx, name):
     """Remove a tag"""
     await ctx.message.delete()
-    connection = await jolteon.sql_server_pool.acquire()
-    db = await connection.cursor()
-    await db.execute('''DELETE FROM tags WHERE guildid = %s AND tagname = %s''', (ctx.guild.id, name.lower()))
-    await db.close()
-    connection.close()
-    jolteon.sql_server_pool.release(connection)
+    async with jolteon.sql_server_pool.acquire() as connection:
+        async with connection.cursor() as db:
+            await db.execute('''DELETE FROM tags WHERE guildid = %s AND tagname = %s''', (ctx.guild.id, name.lower()))
     await ctx.send(f"tag `{name.lower()}` deleted", delete_after=10)
 
 
@@ -234,13 +227,10 @@ async def tagslist(ctx):
     """list the tags on this server"""
     await ctx.message.delete()
     sid = ctx.guild.id
-    connection = await jolteon.sql_server_pool.acquire()
-    db = await connection.cursor()
-    await db.execute('''SELECT tagname FROM tags WHERE guildid = %s''', (sid,))
-    factoids = await db.fetchall()
-    await db.close()
-    connection.close()
-    jolteon.sql_server_pool.release(connection)
+    async with jolteon.sql_server_pool.acquire() as connection:
+        async with connection.cursor() as db:
+            await db.execute('''SELECT tagname FROM tags WHERE guildid = %s''', (sid,))
+            factoids = await db.fetchall()
     if factoids:
         await ctx.send('`' + "`, `".join([i for (i,) in factoids]) + '`')
     else:
@@ -252,20 +242,17 @@ async def tagslist(ctx):
 @commands.guild_only()
 async def prefix(ctx, newprefix):  # context and what we should set the new prefix to
     """Sets the bot prefix for this server"""
-    connection = await jolteon.sql_server_pool.acquire()
-    db = await connection.cursor()
-    await db.execute(f'''SELECT prefix FROM prefixes WHERE guildid = %s''',
-                     (ctx.guild.id,))  # get the current prefix for that server, if it exists
-    if await db.fetchone():  # actually check if it exists
-        await db.execute('''UPDATE prefixes SET prefix = %s WHERE guildid = %s''',
-                         (newprefix, ctx.guild.id))  # update prefix
-    else:
-        await db.execute("INSERT INTO prefixes(guildid, prefix) VALUES (%s,%s)",
-                         (ctx.guild.id, newprefix))  # set new prefix
+    async with jolteon.sql_server_pool.acquire() as connection:
+        async with connection.cursor() as db:
+            await db.execute(f'''SELECT prefix FROM prefixes WHERE guildid = %s''',
+                             (ctx.guild.id,))  # get the current prefix for that server, if it exists
+            if await db.fetchone():  # actually check if it exists
+                await db.execute('''UPDATE prefixes SET prefix = %s WHERE guildid = %s''',
+                                 (newprefix, ctx.guild.id))  # update prefix
+            else:
+                await db.execute("INSERT INTO prefixes(guildid, prefix) VALUES (%s,%s)",
+                                 (ctx.guild.id, newprefix))  # set new prefix
     # close connection
-    await db.close()
-    connection.close()
-    jolteon.sql_server_pool.release(connection)
     await ctx.send(f"Prefix set to {newprefix}")  # tell admin what happened
 
 
