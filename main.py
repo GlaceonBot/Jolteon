@@ -90,24 +90,6 @@ jolteon.embedcolor = 0xadd8e6
 logging.info("Connecting to SQL server!")
 
 
-async def exit_handler():
-    await jolteon.close()
-    jolteon.sql_server_pool.close()
-    await jolteon.sql_server_pool.wait_closed()
-    asyncio.get_event_loop().stop()
-    exit(0)
-
-
-# Handle sigterm and sigint
-loop = asyncio.get_event_loop()
-for signame in ('SIGINT', 'SIGTERM'):
-    try:
-        loop.add_signal_handler(getattr(signal, signame),
-                                lambda: asyncio.create_task(exit_handler()))
-    except NotImplementedError:
-        logging.debug("You are on Windows, clean close is not enabled!")
-
-
 async def connect_to_sql():
     conn = await aiomysql.create_pool(host=os.getenv('SQLserverhost'),
                                       user=os.getenv('SQLusername'),
