@@ -175,7 +175,6 @@ async def tagadd(ctx, name, *, contents):
     elif re.match(r'<@(!?)([0-9]*)>', name):
         await ctx.reply("You cannot have a ping factoid.")
     else:
-        await ctx.message.delete()
         async with jolteon.sql_server_pool.acquire() as connection:
             async with connection.cursor() as db:
                 await db.execute(f'''SELECT guildid FROM tags WHERE guildid = %s AND tagname = %s''',
@@ -186,7 +185,7 @@ async def tagadd(ctx, name, *, contents):
                 else:
                     await db.execute('''INSERT INTO tags(guildid, tagname, tagcontent) VALUES (%s,%s,%s)''',
                                      (ctx.guild.id, name.lower(), contents))
-                await ctx.send(f"Tag added with name `{name.lower()}` and contents `{contents}`", delete_after=10)
+                await ctx.reply(f"Tag added with name `{name.lower()}` and contents `{contents}`")
 
 
 @jolteon.command(aliases=["trm", "tagremove"])
@@ -194,27 +193,29 @@ async def tagadd(ctx, name, *, contents):
 @commands.guild_only()
 async def tagdelete(ctx, name):
     """Remove a tag"""
-    await ctx.message.delete()
+    try:
+        await ctx.message.delete()
+    except discord.Forbidden:
+        pass
     async with jolteon.sql_server_pool.acquire() as connection:
         async with connection.cursor() as db:
             await db.execute('''DELETE FROM tags WHERE guildid = %s AND tagname = %s''', (ctx.guild.id, name.lower()))
-    await ctx.send(f"tag `{name.lower()}` deleted", delete_after=10)
+    await ctx.reply(f"tag `{name.lower()}` deleted", delete_after=10)
 
 
 @jolteon.command(aliases=["tlist", "tl", "taglist"])
 @commands.guild_only()
 async def tagslist(ctx):
     """list the tags on this server"""
-    await ctx.message.delete()
     sid = ctx.guild.id
     async with jolteon.sql_server_pool.acquire() as connection:
         async with connection.cursor() as db:
             await db.execute('''SELECT tagname FROM tags WHERE guildid = %s''', (sid,))
             factoids = await db.fetchall()
     if factoids:
-        await ctx.send('`' + "`, `".join([i for (i,) in factoids]) + '`')
+        await ctx.reply('`' + "`, `".join([i for (i,) in factoids]) + '`')
     else:
-        await ctx.send(f"This guild has no tags!")
+        await ctx.reply(f"This guild has no tags!")
 
 
 @jolteon.command()
@@ -235,6 +236,14 @@ async def prefix(ctx, newprefix):  # context and what we should set the new pref
     # close connection
     await ctx.send(f"Prefix set to {newprefix}")  # tell admin what happened
 
+
+# on_message custom command handler
+@jolteon.event
+async def on_message(message):
+    ctx = message.context
+    if message.content.startswith(await prefixgetter(jolteon, message)):
+      pass
+    bot.process_commands(message)
 
 @jolteon.event
 async def on_command_error(ctx, error):
