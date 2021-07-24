@@ -1,4 +1,5 @@
 .env
+.replit
 **/venv
 **/.idea
 *.log

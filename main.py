@@ -26,11 +26,9 @@ if flags.botstatus:
 else:
     botstatus = discord.Status.online
 if flags.botactivity:
-    botactivity = getattr(discord.ActivityType, flags.botactivity.split()[0].lower())
-    botdoing = flags.botactivity.split(' ', 1)[1]
+    botactivity = discord.Activity(type=getattr(discord.ActivityType, flags.botactivity.split()[0].lower()), name=flags.botactivity.split(' ', 1)[1])
 else:
     botactivity = None
-    botdoing = None
 
 logging.basicConfig(level=logginglevel, filename=flags.loggingfile, filemode='w+', encoding='utf-8', )
 if wrongflags:
