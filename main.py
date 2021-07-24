@@ -83,7 +83,7 @@ intents = discord.Intents().all()
 logging.info("Initializing bot!")
 jolteon = commands.Bot(command_prefix=prefixgetter, case_insensitive=True, intents=intents,
                        help_command=Help(command_attrs={'aliases': ['man']}),
-                       activity=discord.Activity(type=botactivity, name=botdoing),
+                       activity=botactivity,
                        status=botstatus,
                        strip_after_prefix=True)
 jolteon.embedcolor = 0xadd8e6
