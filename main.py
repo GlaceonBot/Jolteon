@@ -30,7 +30,7 @@ if flags.botactivity:
 else:
     botactivity = None
 
-logging.basicConfig(level=logginglevel, filename=flags.loggingfile, filemode='w+', encoding='utf-8', )
+logging.basicConfig(level=logginglevel, filename=flags.loggingfile, filemode='w+')
 if wrongflags:
     logging.warning("An unrecognised flag was passed, skipping")
 logging.info("Starting Jolteon.....")
