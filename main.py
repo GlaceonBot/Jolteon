@@ -66,6 +66,7 @@ class Help(commands.MinimalHelpCommand):
     # actually sends the help
     # noinspection PyTypeChecker
     async def send_bot_help(self, mapping):
+        await self.context.message.delete()
         embed = discord.Embed(colour=jolteon.embedcolor, title="Help")
         prefix = await prefixgetter(jolteon, self.context.message)
         embed.add_field(name="Tags",
