@@ -147,8 +147,9 @@ async def tag(ctx, *inputs):
                     factoid = await db.fetchone()
                     await db.close()
                     if factoid:
-                        if factoid != "help":
-                            factoids.append(factoid[0])
+                        factoids.append(factoid[0])
+                    elif t is "help":
+                      pass
                     else:
                         await ctx.send(f"tag `{t}` not found!", delete_after=15)
                         errors = True
