@@ -67,7 +67,7 @@ class Help(commands.MinimalHelpCommand):
     # noinspection PyTypeChecker
     async def send_bot_help(self, mapping):
         prefix = await prefixgetter(jolteon, self.context.message)
-        helpmessage = f"You can use the tags by using `{prefix[0]}t <tag> [@mention]`\n\n[List of tags](https://jolteon.glaceon.xyz/{self.context.guild.id}) \n\n You can delete a tag by reacting with the 🗑️ emoji\n\n**prefix**\n`{prefix[0]}` or <@{self.context.me.id}>"
+        helpmessage = f"You can use the tags by using `{prefix[0]}t <tag> [@mention]`\n\n[List of tags](https://jolteon.glaceon.xyz/{self.context.guild.id}) \n\n You can delete a tag by reacting with the 🗑️ emoji\n\n**Prefix**\n`{prefix[0]}` or <@{self.context.me.id}>"
         embed = discord.Embed(colour=jolteon.embedcolor, title="Help", description=helpmessage)
         await self.context.reply(embed=embed)
 
@@ -142,7 +142,7 @@ async def tag(ctx, *inputs):
                         factoids.append(factoid[0])
                     elif t == "help":
                         prefix = await prefixgetter(jolteon, ctx.message)
-                        factoids.append(f"You can use the tags by using `{prefix[0]}t <tag> [@mention]`\n\n[List of tags](https://jolteon.glaceon.xyz/{ctx.guild.id}) \n\n You can delete a tag by reacting with the 🗑️ emoji\n\n**prefix**\n`{prefix[0]}` or <@{ctx.me.id}>")
+                        factoids.append(f"You can use the tags by using `{prefix[0]}t <tag> [@mention]`\n\n[List of tags](https://jolteon.glaceon.xyz/{ctx.guild.id}) \n\n You can delete a tag by reacting with the 🗑️ emoji\n\n**Prefix**\n`{prefix[0]}` or <@{ctx.me.id}>")
                     else:
                         await ctx.send(f"tag `{t}` not found!", delete_after=15)
                         errors = True
