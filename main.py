@@ -69,7 +69,7 @@ class Help(commands.MinimalHelpCommand):
         embed = discord.Embed(colour=jolteon.embedcolor, title="Help")
         prefix = await prefixgetter(jolteon, self.context.message)
         embed.add_field(name="Tags",
-                        value=f"You can use the tags by using `{prefix[0]}t <tag> [@mention]`\n\n[List of tags](https://glaceon.xyz/jolteon/{ctx.guild.id}) \n\n You can delete a tag by reacting with the 🗑️ emoji",
+                        value=f"You can use the tags by using `{prefix[0]}t <tag> [@mention]`\n\n[List of tags](https://glaceon.xyz/jolteon/{self.context.guild.id}) \n\n You can delete a tag by reacting with the 🗑️ emoji",
                         inline=False)
         prefix = await prefixgetter(jolteon, self.context.message)
         embed.add_field(name="Prefix", value=f"`{prefix[0]}` or <@{self.context.me.id}>", inline=False)
