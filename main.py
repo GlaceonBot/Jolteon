@@ -207,15 +207,7 @@ async def tagdelete(ctx, name):
 @commands.guild_only()
 async def tagslist(ctx):
     """list the tags on this server"""
-    sid = ctx.guild.id
-    async with jolteon.sql_server_pool.acquire() as connection:
-        async with connection.cursor() as db:
-            await db.execute('''SELECT tagname FROM tags WHERE guildid = %s''', (sid,))
-            factoids = await db.fetchall()
-    if factoids:
-        await ctx.reply('`' + "`, `".join([i for (i,) in factoids]) + '`')
-    else:
-        await ctx.reply(f"This guild has no tags!")
+    await ctx.reply(f"You can get a list of tags on this server by going to https://glaceon.xyz/jolteon/{ctx.guild.id}")
 
 
 @jolteon.command()
