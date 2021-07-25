@@ -66,15 +66,10 @@ class Help(commands.MinimalHelpCommand):
     # actually sends the help
     # noinspection PyTypeChecker
     async def send_bot_help(self, mapping):
-        await self.context.message.delete()
-        embed = discord.Embed(colour=jolteon.embedcolor, title="Help")
         prefix = await prefixgetter(jolteon, self.context.message)
-        embed.add_field(name="Tags",
-                        value=f"You can use the tags by using `{prefix[0]}t <tag> [@mention]`\n\n[List of tags](https://glaceon.xyz/jolteon/{self.context.guild.id}) \n\n You can delete a tag by reacting with the 🗑️ emoji",
-                        inline=False)
-        prefix = await prefixgetter(jolteon, self.context.message)
-        embed.add_field(name="Prefix", value=f"`{prefix[0]}` or <@{self.context.me.id}>", inline=False)
-        await self.get_destination().send(embed=embed)
+        embed = discord.Embed(colour=jolteon.embedcolor, title="Help", description=helpmessage)
+        helpmessage=f"You can use the tags by using `{prefix[0]}t <tag> [@mention]`\n\n[List of tags](https://glaceon.xyz/jolteon/{self.context.guild.id}) \n\n You can delete a tag by reacting with the 🗑️ emoji\n\n**prefix**\n`{prefix[0]}` or <@{self.context.me.id}>"
+        await self.context.reply(embed=embed)
 
 
 # Sets the discord intents to all
