@@ -141,7 +141,7 @@ async def tag(ctx, *inputs):
                 for t in tags:
                     t = t.lower()
                     if t == "help":
-                        prefix = await prefixgetter(jolteon, self.context.message)
+                        prefix = await prefixgetter(jolteon, ctx.message)
                         factoids.append(f"You can use the tags by using `{prefix[0]}t <tag> [@mention]`\n\n[List of tags](https://glaceon.xyz/jolteon/{ctx.guild.id}) \n\nYou can delete a tag by reacting with the 🗑️ emoji")
                     await db.execute('''SELECT tagcontent FROM tags WHERE guildid = %s AND tagname = %s''', (sid, t))
                     factoid = await db.fetchone()
