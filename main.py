@@ -240,10 +240,10 @@ async def prefix(ctx, newprefix):  # context and what we should set the new pref
 # on_message custom command handler
 @jolteon.event
 async def on_message(message):
-    ctx = message.context
+    ctx = await jolteon.get_context(message)
     if message.content.startswith(await prefixgetter(jolteon, message)):
-      pass
-    bot.process_commands(message)
+      pass #someday this will be the custom log checker
+    await jolteon.process_commands(message)
 
 @jolteon.event
 async def on_command_error(ctx, error):
