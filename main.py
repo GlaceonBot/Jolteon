@@ -141,6 +141,7 @@ async def tag(ctx, *inputs):
                 for t in tags:
                     t = t.lower()
                     if t == "help":
+                        prefix = await prefixgetter(jolteon, self.context.message)
                         factoids.append(f"You can use the tags by using `{prefix[0]}t <tag> [@mention]`\n\n[List of tags](https://glaceon.xyz/jolteon/{ctx.guild.id}) \n\nYou can delete a tag by reacting with the 🗑️ emoji")
                     await db.execute('''SELECT tagcontent FROM tags WHERE guildid = %s AND tagname = %s''', (sid, t))
                     factoid = await db.fetchone()
@@ -172,22 +173,25 @@ async def tag(ctx, *inputs):
 @commands.guild_only()
 async def tagadd(ctx, name, *, contents):
     """add or edit tags"""
+    name = name.lower()
     if len(contents) > 1900:
-        await ctx.reply("That factoid is too long!")
+        await ctx.reply("That tag is too long!")
     elif re.match(r'<@(!?)([0-9]*)>', name):
-        await ctx.reply("You cannot have a ping factoid.")
+        await ctx.reply("You cannot have a ping tag.")
+    elif name is "help":
+        await ctx.reply("You may not set the tag `help`, it is reserved.")
     else:
         async with jolteon.sql_server_pool.acquire() as connection:
             async with connection.cursor() as db:
                 await db.execute(f'''SELECT guildid FROM tags WHERE guildid = %s AND tagname = %s''',
-                                 (ctx.guild.id, name.lower()))
+                                 (ctx.guild.id, name))
                 if await db.fetchone():
                     await db.execute('''UPDATE tags SET tagcontent = %s WHERE guildid = %s AND tagname = %s''',
-                                     (contents, ctx.guild.id, name.lower()))
+                                     (contents, ctx.guild.id, name))
                 else:
                     await db.execute('''INSERT INTO tags(guildid, tagname, tagcontent) VALUES (%s,%s,%s)''',
-                                     (ctx.guild.id, name.lower(), contents))
-                await ctx.reply(f"Tag added with name `{name.lower()}` and contents `{contents}`")
+                                     (ctx.guild.id, name, contents))
+                await ctx.reply(f"Tag added with name `{name}` and contents `{contents}`")
 
 
 @jolteon.command(aliases=["trm", "tagremove"])
