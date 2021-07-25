@@ -2,4 +2,5 @@
 .replit
 **/venv
 **/.idea
+**/dash
 *.log
