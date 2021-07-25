@@ -104,9 +104,9 @@ logging.debug(f"Connected to sql server {os.getenv('SQLserverhost')} as {os.gete
 
 async def if_wastebasket_reacted(ctx, reply):
     def added_emoji_check(reaction, user):  # the actual check
-        return user == ctx.message.author and str(reaction.emoji) == '🗑️'
+        return user == ctx.message.author and message == ctx.message and str(reaction.emoji) == '🗑️'
 
-    reaction, user = await jolteon.wait_for('reaction_add', check=added_emoji_check)
+    reaction, message, user = await jolteon.wait_for('reaction_add', check=added_emoji_check)
     try:
         await reply.delete()
     except discord.NotFound:
