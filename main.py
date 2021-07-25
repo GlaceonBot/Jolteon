@@ -172,7 +172,7 @@ async def tagadd(ctx, name, *, contents):
         await ctx.reply("That tag is too long!")
     elif re.match(r'<@(!?)([0-9]*)>', name):
         await ctx.reply("You cannot have a ping tag.")
-    elif name is "help":
+    elif name == "help":
         await ctx.reply("You may not set the tag `help`, it is reserved.")
     else:
         async with jolteon.sql_server_pool.acquire() as connection:
