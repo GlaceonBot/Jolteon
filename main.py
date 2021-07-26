@@ -193,10 +193,6 @@ async def tagadd(ctx, name, *, contents):
 @commands.guild_only()
 async def tagdelete(ctx, name):
     """Remove a tag"""
-    try:
-        await ctx.message.delete()
-    except discord.Forbidden:
-        pass
     async with jolteon.sql_server_pool.acquire() as connection:
         async with connection.cursor() as db:
             await db.execute('''DELETE FROM tags WHERE guildid = %s AND tagname = %s''', (ctx.guild.id, name.lower()))
