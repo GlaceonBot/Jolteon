@@ -81,7 +81,7 @@ jolteon = commands.Bot(command_prefix=prefixgetter, case_insensitive=True, inten
                        activity=botactivity,
                        status=botstatus,
                        strip_after_prefix=True)
-jolteon.embedcolor = 0xadd8e6
+jolteon.embedcolor = 0xDBC074
 logging.info("Connecting to SQL server!")
 
 
