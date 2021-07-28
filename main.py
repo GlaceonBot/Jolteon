@@ -152,7 +152,10 @@ async def tag(ctx, *inputs):
                         if len("\n\n".join(factoids)) >= 4096:
                             await ctx.reply("You have too many factoids!")
                             return
-                        await ctx.message.delete()
+                        try:
+                            await ctx.message.delete()
+                        except discord.Forbidden:
+                            pass
                         embed = discord.Embed(colour=jolteon.embedcolor, description="\n\n".join(factoids))
                         embed.set_footer(text=f"I am a bot, i will not respond to you | Request by {ctx.author}")
                         our_message = await ctx.send(" ".join(pings) + " Please refer to the below information.", embed=embed)
@@ -185,7 +188,11 @@ async def tagadd(ctx, name, *, contents):
                 else:
                     await db.execute('''INSERT INTO tags(guildid, tagname, tagcontent) VALUES (%s,%s,%s)''',
                                      (ctx.guild.id, name, contents))
-                await ctx.reply(f"Tag added with name `{name}` and contents `{contents}`")
+                try:
+                    await ctx.message.delete()
+                except discord.Forbidden:
+                    pass
+                await ctx.reply(f"Tag `{name}` added!")
 
 
 @jolteon.command(aliases=["trm", "tagremove"])
@@ -196,6 +203,10 @@ async def tagdelete(ctx, name):
     async with jolteon.sql_server_pool.acquire() as connection:
         async with connection.cursor() as db:
             await db.execute('''DELETE FROM tags WHERE guildid = %s AND tagname = %s''', (ctx.guild.id, name.lower()))
+    try:
+        await ctx.message.delete()
+    except discord.Forbidden:
+        pass
     await ctx.reply(f"tag `{name.lower()}` deleted", delete_after=10)
 
 
@@ -215,16 +226,17 @@ async def prefix(ctx, newprefix):  # context and what we should set the new pref
                 await db.execute("INSERT INTO prefixes(guildid, prefix) VALUES (%s,%s)",
                                  (ctx.guild.id, newprefix))  # set new prefix
     # close connection
-    await ctx.send(f"Prefix set to {newprefix}")  # tell admin what happened
+    await ctx.reply(f"Prefix set to {newprefix}")  # tell admin what happened
 
 
 # on_message custom command handler
 @jolteon.event
 async def on_message(message):
+    await jolteon.process_commands(message)
     ctx = await jolteon.get_context(message)
     if message.content.startswith(await prefixgetter(jolteon, message)):
       pass #someday this will be the custom log checker
-    await jolteon.process_commands(message)
+    
 
 @jolteon.event
 async def on_command_error(ctx, error):
