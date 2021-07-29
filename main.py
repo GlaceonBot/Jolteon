@@ -203,10 +203,6 @@ async def tagdelete(ctx, name):
     async with jolteon.sql_server_pool.acquire() as connection:
         async with connection.cursor() as db:
             await db.execute('''DELETE FROM tags WHERE guildid = %s AND tagname = %s''', (ctx.guild.id, name.lower()))
-    try:
-        await ctx.message.delete()
-    except discord.Forbidden:
-        pass
     await ctx.reply(f"tag `{name.lower()}` deleted", delete_after=10)
 
 
