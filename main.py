@@ -192,7 +192,7 @@ async def tagadd(ctx, name, *, contents):
                     await ctx.message.delete()
                 except discord.Forbidden:
                     pass
-                await ctx.reply(f"Tag `{name}` added!")
+                await ctx.send(f"{ctx.author.mention}, Tag `{name}` added!")
 
 
 @jolteon.command(aliases=["trm", "tagremove"])
