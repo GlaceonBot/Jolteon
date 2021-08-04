@@ -46,20 +46,17 @@ async def prefixgetter(bot, message):
         guildid = message.guild.id
     except AttributeError:
         return default_prefix
-    connection = await bot.sql_server_pool.acquire()
-    db = await connection.cursor()
-    # find which prefix matches this specific server id
-    await db.execute(f'''SELECT prefix FROM prefixes WHERE guildid = %s''', (guildid,))
-    # fetch the prefix
-    custom_prefix = await db.fetchone()
-    # if the custom prefix exists, then send it back, otherwise return the default one
-    await db.close()
-    connection.close()
-    bot.sql_server_pool.release(connection)
-    if custom_prefix:
-        return str(custom_prefix[0]), *ping_prefixes
-    else:
-        return default_prefix, *ping_prefixes
+    async with jolteon.sql_server_pool.acquire() as connection:
+            async with connection.cursor() as db:
+                # find which prefix matches this specific server id
+                await db.execute(f'''SELECT prefix FROM prefixes WHERE guildid = %s''', (guildid,))
+                # fetch the prefix
+                custom_prefix = await db.fetchone()
+                # if the custom prefix exists, then send it back, otherwise return the default one
+                if custom_prefix:
+                    return str(custom_prefix[0]), *ping_prefixes
+                else:
+                    return default_prefix, *ping_prefixes
 
 
 class Help(commands.MinimalHelpCommand):
