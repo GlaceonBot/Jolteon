@@ -141,20 +141,20 @@ async def tag(ctx, *inputs):
                         prefix = await prefixgetter(jolteon, ctx.message)
                         factoids.append(f"You can use the tags by using `{prefix[0]}t <tag> [@mention]`\n\n[List of tags](https://jolteon.glaceon.xyz/{ctx.guild.id}) \n\n You can delete a tag by reacting with the 🗑️ emoji\n\n**Prefix**\n`{prefix[0]}` or <@{ctx.me.id}>")
                     else:
-                        await ctx.send(f"tag `{t}` not found!", delete_after=15)
+                        await ctx.send(f"Tag `{t}` not found!", delete_after=15)
                         errors = True
                         break
                 if errors is False:
                     if factoids:
                         if len("\n\n".join(factoids)) >= 4096:
-                            await ctx.reply("You have too many factoids!")
+                            await ctx.reply("You have too many tags!")
                             return
                         try:
                             await ctx.message.delete()
                         except discord.Forbidden:
                             pass
                         embed = discord.Embed(colour=jolteon.embedcolor, description="\n\n".join(factoids))
-                        embed.set_footer(text=f"I am a bot, i will not respond to you | Request by {ctx.author}")
+                        embed.set_footer(text=f"I am a bot, I will not respond to you | Request by {ctx.author}")
                         our_message = await ctx.send(" ".join(pings) + " Please refer to the below information.", embed=embed)
                         wastebasket_check_task = asyncio.create_task(if_wastebasket_reacted(ctx, our_message))
                         await wastebasket_check_task
